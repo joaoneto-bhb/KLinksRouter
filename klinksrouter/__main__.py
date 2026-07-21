@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import sys
 
-from klinksrouter.config import load_config
+from klinksrouter.config import config_path, load_config
 from klinksrouter.launcher import launch
-from klinksrouter.notify import notify_routed
+from klinksrouter.notify import notify_error, notify_routed
 from klinksrouter.router import Rule, apply_rule, find_rule
 
 
@@ -23,7 +23,12 @@ def main() -> int:
     browser = browsers.get(browser_name)
 
     if not browser:
-        print(f"navegador '{browser_name}' não configurado em rules.yaml", file=sys.stderr)
+        message = (
+            f"Navegador '{browser_name}' não existe em {config_path()}.\n"
+            f"Chaves válidas em browsers: {', '.join(browsers) or '(nenhuma)'}"
+        )
+        print(message, file=sys.stderr)
+        notify_error(message)
         return 1
 
     final_url = apply_rule(url, rule) if rule else url
