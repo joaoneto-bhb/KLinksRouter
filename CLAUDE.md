@@ -83,8 +83,11 @@ projeto se precisar de contexto).
 e recomenda o BaseApp oficial (`https://github.com/flathub/io.qt.PySide.BaseApp`)
 — vendorizar o wheel do PyPI por cima de um runtime KDE é a fonte clássica de
 incompatibilidade de ABI. O manifest (`packaging/flatpak/store.bighub.KLinksRouter.yml`)
-usa `base: io.qt.PySide.BaseApp` / `base-version: "6.8"` (branch 6.7 do BaseApp
-está marcada "Discouraged" upstream) por cima de `org.kde.Platform`, com
+usa `base: io.qt.PySide.BaseApp` / `base-version: "6.7"` por cima de
+`org.kde.Platform` (branch 6.7 está marcada "Discouraged" no BaseApp, mas é a
+mais recente com imagem de CI publicada em `bilelmoussaoui/flatpak-github-actions`
+— sem isso o job de build falha no pull do container; revisitar quando a tag
+`kde-6.8` sair), com
 `BASEAPP_REMOVE_WEBENGINE=1` e `BASEAPP_DISABLE_NUMPY=1` pra reduzir o bundle,
 e `cleanup-commands: [/app/cleanup-BaseApp.sh]` (exigido pelo BaseApp). O
 módulo `python3-requirements.json` gerado por
