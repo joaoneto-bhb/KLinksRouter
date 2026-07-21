@@ -35,6 +35,10 @@ rules:                            # avaliadas em ordem; a primeira que casar ven
 - Coloque regras mais específicas antes das genéricas: a primeira que casar
   ganha, sem "melhor match".
 - `set_params` ausente ou vazio não mexe na URL.
+- `default_browser` e `browser:` das regras usam o **nome/chave** definido em
+  `browsers:` (ex: `chrome`), nunca o binário (`google-chrome-stable`) direto
+  — errar isso faz o link não abrir em nada (e agora dispara uma notificação
+  de erro avisando qual chave está inválida).
 
 ## Exemplo completo
 

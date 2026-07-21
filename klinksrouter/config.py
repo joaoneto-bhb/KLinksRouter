@@ -14,6 +14,8 @@ DEFAULT_RULES_YAML = """\
 # recente do disco a cada link clicado, não precisa reiniciar nada.
 
 # Navegador padrão, usado quando nenhuma regra abaixo casar com a URL.
+# Tem que ser uma das CHAVES do bloco "browsers:" (ex: firefox, chrome) --
+# não o nome do comando/binário.
 default_browser: firefox
 
 # Navegadores disponíveis: nome -> comando. A URL final é anexada como
