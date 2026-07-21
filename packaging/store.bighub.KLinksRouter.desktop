@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=KLinksRouter (editar regras)
+Comment=Abrir o arquivo de regras de roteamento de links entre navegadores
+Exec=klinksrouter-edit-rules
+Icon=store.bighub.KLinksRouter
+Categories=Utility;Network;Qt;KDE;
+Terminal=false

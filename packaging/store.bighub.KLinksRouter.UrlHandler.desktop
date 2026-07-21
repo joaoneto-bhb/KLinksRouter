@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=KLinksRouter (handler de links)
+NoDisplay=true
+Exec=klinksrouter %u
+Icon=store.bighub.KLinksRouter
+MimeType=x-scheme-handler/http;x-scheme-handler/https;
+Terminal=false

@@ -1,0 +1,29 @@
+[project]
+name = "klinksrouter"
+version = "0.1.0"
+description = "Roteador leve de links: abre cada URL no navegador certo, com reescrita de parâmetros."
+requires-python = ">=3.11"
+dependencies = [
+  # só QtWidgets/QtGui (bandeja + ícone) -- não usamos QML/Kirigami, então o
+  # pacote Essentials basta e evita puxar o Addons (WebEngine, Qt3D etc).
+  "PySide6-Essentials>=6.7",
+  "PyYAML>=6.0",
+  "platformdirs>=4.0",
+]
+
+[project.scripts]
+klinksrouter = "klinksrouter.__main__:main"
+klinksrouter-tray = "klinksrouter.gui.tray:main"
+klinksrouter-edit-rules = "klinksrouter.editor:main"
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+]
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["klinksrouter*"]

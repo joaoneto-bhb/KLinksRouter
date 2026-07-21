@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=KLinksRouter (bandeja)
+Comment=Mantém o roteador de links ativo em segundo plano
+NoDisplay=true
+Exec=klinksrouter-tray
+Icon=store.bighub.KLinksRouter
+X-GNOME-Autostart-enabled=true
+X-KDE-autostart-phase=1
+Terminal=false

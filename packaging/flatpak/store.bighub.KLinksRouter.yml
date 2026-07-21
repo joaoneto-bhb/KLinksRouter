@@ -1,0 +1,44 @@
+id: store.bighub.KLinksRouter
+runtime: org.kde.Platform
+runtime-version: "6.8"
+sdk: org.kde.Sdk
+base: io.qt.PySide.BaseApp
+base-version: "6.8"
+command: klinksrouter-tray
+
+build-options:
+  env:
+    - BASEAPP_REMOVE_WEBENGINE=1
+    - BASEAPP_DISABLE_NUMPY=1
+
+cleanup-commands:
+  - /app/cleanup-BaseApp.sh
+
+# --talk-name=org.freedesktop.Flatpak permite flatpak-spawn --host, único jeito
+# de lançar Chrome/Firefox do host de dentro do sandbox.
+# --talk-name=org.freedesktop.portal.Background permite pedir autostart via portal.
+finish-args:
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --share=ipc
+  - --device=dri
+  - --talk-name=org.freedesktop.Flatpak
+  - --talk-name=org.freedesktop.portal.Background
+
+modules:
+  # PySide6 vem do BaseApp -- este módulo só cobre PyYAML e platformdirs
+  # (gerado por scripts/generate-flatpak-pip-sources.sh).
+  - python3-requirements.json
+
+  - name: klinksrouter
+    buildsystem: simple
+    build-commands:
+      - install -Dm644 packaging/store.bighub.KLinksRouter.desktop /app/share/applications/store.bighub.KLinksRouter.desktop
+      - install -Dm644 packaging/store.bighub.KLinksRouter.UrlHandler.desktop /app/share/applications/store.bighub.KLinksRouter.UrlHandler.desktop
+      - install -Dm644 packaging/store.bighub.KLinksRouter.Tray.desktop /app/etc/xdg/autostart/store.bighub.KLinksRouter.Tray.desktop
+      - install -Dm644 packaging/icons/store.bighub.KLinksRouter.svg /app/share/icons/hicolor/scalable/apps/store.bighub.KLinksRouter.svg
+      - install -Dm644 packaging/flatpak/store.bighub.KLinksRouter.metainfo.xml /app/share/metainfo/store.bighub.KLinksRouter.metainfo.xml
+      - pip3 install --prefix=/app --no-build-isolation --no-deps .
+    sources:
+      - type: dir
+        path: ../..
