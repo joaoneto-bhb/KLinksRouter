@@ -8,3 +8,5 @@ packaging/flatpak/.flatpak-builder/
 *.egg-info/
 build/
 dist/
+packaging/macos/KLinksRouter.icns
+*.dmg

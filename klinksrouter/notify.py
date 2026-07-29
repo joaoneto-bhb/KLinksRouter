@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import subprocess
+import sys
 
 
 def notify_routed(url: str, browser_name: str) -> None:
@@ -12,6 +13,10 @@ def notify_error(message: str) -> None:
 
 
 def _notify(summary: str, body: str, urgency: str = "normal") -> None:
+    if sys.platform == "darwin":
+        _notify_macos(summary, body)
+        return
+
     try:
         subprocess.Popen(
             [
@@ -25,3 +30,18 @@ def _notify(summary: str, body: str, urgency: str = "normal") -> None:
         )
     except FileNotFoundError:
         pass
+
+
+def _notify_macos(summary: str, body: str) -> None:
+    # osascript não tem --urgency; "critical" vs "normal" não faz diferença
+    # visual no Centro de Notificações do macOS.
+    script = f"display notification {_applescript_literal(body)} with title {_applescript_literal(summary)}"
+    try:
+        subprocess.Popen(["osascript", "-e", script])
+    except FileNotFoundError:
+        pass
+
+
+def _applescript_literal(value: str) -> str:
+    escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+    return f'"{escaped}"'

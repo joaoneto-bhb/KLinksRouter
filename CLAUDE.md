@@ -4,11 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## O que é
 
-KLinksRouter é um roteador de links para KDE Plasma 6: intercepta a abertura
-de qualquer URL http/https no sistema e decide, por regras configuráveis,
-qual navegador deve abri-la — podendo reescrever query params no processo
-(ex: `meet.google.com` → Chrome com `&authuser=3` forçado; `discord.com` →
-Firefox). Foco 100% KDE, sem pretensão de portabilidade cross-DE/OS.
+KLinksRouter é um roteador de links: intercepta a abertura de qualquer URL
+http/https no sistema e decide, por regras configuráveis, qual navegador deve
+abri-la — podendo reescrever query params no processo (ex:
+`meet.google.com` → Chrome com `&authuser=3` forçado; `discord.com` →
+Firefox). Foco primário é KDE Plasma 6; há também suporte a macOS (ver seção
+"macOS" em Arquitetura) — sem pretensão de cobrir outros DEs Linux (GNOME
+etc.) além desses dois alvos.
 
 Não tem GUI de formulário para editar regras — "editar" é abrir
 `rules.yaml` num editor de texto (ver seção Arquitetura). É proposital: menos
@@ -19,9 +21,10 @@ superfície de UI para manter, e o arquivo já é autoexplicativo (comentado).
 ```bash
 scripts/dev-run.sh          # cria/reusa .venv, instala em modo editável, abre a bandeja
 source .venv/bin/activate && pytest -q    # roda os testes (só klinksrouter/router.py hoje)
-scripts/install-local.sh    # instala nativamente (pipx) para o usuário atual
+scripts/install-local.sh    # instala nativamente (pipx) para o usuário atual, Linux
 scripts/generate-flatpak-pip-sources.sh   # regenera packaging/flatpak/python3-requirements.json (PyYAML+platformdirs)
 scripts/build-flatpak.sh    # flatpak-builder --user --install
+scripts/build-macos.sh <versão>   # gera dist/KLinksRouter.app + KLinksRouter.dmg (só roda em macOS)
 ```
 
 Para testar a lógica de roteamento manualmente sem lançar navegador de verdade,
@@ -30,18 +33,23 @@ resultado de `router.apply_rule` num REPL — não há flag `--dry-run` no CLI.
 
 ## Arquitetura
 
-Dois processos independentes, sem estado compartilhado em memória — tudo passa
-por `~/.config/klinksrouter/rules.yaml` (via `platformdirs`, `klinksrouter/config.py`):
+Sem estado compartilhado em memória — tudo passa por
+`~/.config/klinksrouter/rules.yaml` (via `platformdirs`, `klinksrouter/config.py`).
+A lógica de "casar regra, reescrever params, lançar navegador, notificar" vive
+em `klinksrouter/routing.py:route_url(url)`, compartilhada entre o processo
+que trata a URL no KDE (CLI efêmera) e no macOS (o próprio app da bandeja,
+via Apple Event) — ver as duas seções abaixo.
+
+### KDE (Linux)
+
+Dois processos independentes:
 
 1. **`klinksrouter <url>`** (`klinksrouter/__main__.py`) — CLI efêmera,
    registrada no KDE como handler de `x-scheme-handler/http(s)` (ver
    `packaging/store.bighub.KLinksRouter.UrlHandler.desktop`). Todo link
-   clicado no sistema chama essa CLI, que carrega o config, casa a URL contra
-   as regras (`klinksrouter/router.py`), reescreve query params se a regra
-   tiver `set_params`, lança o navegador alvo (`klinksrouter/launcher.py`) e,
-   se alguma regra casou, dispara uma notificação via `notify-send`
-   (`klinksrouter/notify.py`) avisando pra onde foi. Sai imediatamente depois.
-   Não depende da bandeja estar rodando.
+   clicado no sistema chama essa CLI, que delega pra
+   `klinksrouter/routing.py:route_url`. Sai imediatamente depois. Não depende
+   da bandeja estar rodando.
 
 2. **`klinksrouter-tray`** (`klinksrouter/gui/tray.py`) — processo de longa
    duração, autostart na sessão (`packaging/store.bighub.KLinksRouter.Tray.desktop`
@@ -63,6 +71,39 @@ via portal (`org.freedesktop.portal.Background`, `RequestBackground` com
 `autostart=True`), que pede confirmação do usuário no primeiro uso. Fora do
 Flatpak, o autostart é resolvido em instalação (script copia o `.desktop` para
 `~/.config/autostart`), não em runtime.
+
+### macOS
+
+Não existe um equivalente direto ao handler de URL via CLI/argv: o macOS
+entrega a URL de um link clicado como **Apple Event** (`GetURL`) pro app já
+registrado como navegador padrão — mesmo se o app ainda não estava rodando.
+Por isso, ao contrário do KDE, aqui é **um único processo** que acumula os
+dois papéis: `klinksrouter/gui/tray.py` roda uma `QApplication` (`_Application`)
+que sobrescreve `event()` pra capturar `QEvent.Type.FileOpenEvent` — Qt já
+traduz o Apple Event pra esse tipo — e chama `routing.route_url()` direto,
+sem precisar de uma CLI separada. `klinksrouter/__main__.py` continua existindo
+mas não tem papel nenhum no fluxo de macOS.
+
+`klinksrouter/autostart_macos.py` escreve um LaunchAgent em
+`~/Library/LaunchAgents/store.bighub.KLinksRouter.Tray.plist` (`RunAtLoad`) na
+primeira execução e dá `launchctl bootstrap` nele — só age se `sys.frozen`
+(dentro do `.app` empacotado; rodando de uma venv de dev não há o que
+autostartar). `klinksrouter/notify.py` e `klinksrouter/editor.py` fazem branch
+por `sys.platform == "darwin"` pra usar `osascript`/`open` no lugar de
+`notify-send`/`xdg-open`. O ícone da bandeja vem de
+`klinksrouter/gui/icon.py`, que carrega o SVG bundlado via `QtSvg` em vez de
+`QIcon.fromTheme` (sem tema de ícones no macOS).
+
+Empacotamento (`scripts/build-macos.sh` + `packaging/macos/klinksrouter-tray.spec`,
+PyInstaller): gera `dist/KLinksRouter.app` com `Info.plist` declarando
+`CFBundleURLTypes` (schemes `http`/`https`) e `LSUIElement=1` (sem ícone no
+Dock, só barra de menu), depois empacota em `KLinksRouter.dmg` via `hdiutil`.
+O `.icns` do ícone é gerado on-the-fly a partir do SVG usando `QSvgRenderer`
+offscreen (evita depender de `rsvg-convert`/Inkscape no runner). **Sem
+assinatura Developer ID/notarização** (sem conta paga da Apple) — o `.dmg`
+final dispara o aviso do Gatekeeper, contornável com clique-direito → Abrir
+na primeira execução. Se algum dia houver conta Apple, o próximo passo é
+assinar + notarizar no job de CI antes de gerar o `.dmg`.
 
 ### Empacotamento Python: PySide6-Essentials, não PySide6
 
@@ -98,9 +139,12 @@ gitignored — funciona como lockfile).
 ### Modelo de regras (`rules.yaml`)
 
 Spec completa em [`docs/rules-format.md`](docs/rules-format.md) — resumo abaixo.
-O arquivo default (`klinksrouter/config.py:DEFAULT_RULES_YAML`) já vem com
+O arquivo default (`klinksrouter/config.py:default_rules_yaml()`) já vem com
 comentários `#` explicando cada campo — é a documentação primária pro usuário
-final, que só vai abrir esse arquivo, não o README.
+final, que só vai abrir esse arquivo, não o README. O bloco `browsers:` do
+template varia por `sys.platform`: no macOS vem com `command: [open, -a,
+Firefox, --args]` em vez do binário Linux (`firefox`), já que lá o padrão é
+abrir apps via `open -a`.
 
 ```yaml
 default_browser: firefox
@@ -137,8 +181,13 @@ autostart).
 
 ## CI/release
 
-`.github/workflows/flatpak-release.yml` builda o Flatpak com
-`flatpak/flatpak-github-actions/flatpak-builder` a cada tag `v*` e anexa o
-bundle `.flatpak` gerado como asset de uma GitHub Release (via
-`softprops/action-gh-release`) — não publica em Flathub automaticamente,
-isso é um passo manual separado (abrir PR no flathub/flathub).
+`.github/workflows/release.yml` builda em paralelo o Flatpak (job `flatpak`,
+com `flatpak/flatpak-github-actions/flatpak-builder`, container
+`bilelmoussaoui/flatpak-github-actions:kde-6.7`) e o `.dmg` do macOS (job
+`macos`, `runs-on: macos-14`, via `scripts/build-macos.sh`). O job `flatpak`
+roda em todo push/PR pra `main` (validação de build); o job `macos` só roda
+em tag (`v*.*.*` — runner macOS é mais caro, não vale gastar em todo PR). O
+job `release`, condicionado a tag, baixa os dois artefatos e os anexa numa
+GitHub Release via `softprops/action-gh-release` — não publica em Flathub
+nem em nenhum "app store" de macOS automaticamente, isso é passo manual
+separado.

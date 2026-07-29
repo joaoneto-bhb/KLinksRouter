@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 import yaml
@@ -7,7 +8,27 @@ from platformdirs import user_config_dir
 
 APP_NAME = "klinksrouter"
 
-DEFAULT_RULES_YAML = """\
+_BROWSERS_YAML_LINUX = """\
+browsers:
+  firefox:
+    command: [firefox]
+  chrome:
+    command: [google-chrome-stable]
+  # brave:
+  #   command: [brave-browser]
+"""
+
+_BROWSERS_YAML_MACOS = """\
+browsers:
+  firefox:
+    command: [open, -a, Firefox, --args]
+  chrome:
+    command: [open, -a, "Google Chrome", --args]
+  # brave:
+  #   command: [open, -a, "Brave Browser", --args]
+"""
+
+_RULES_YAML_TEMPLATE = """\
 # Configuração do KLinksRouter.
 #
 # Edite este arquivo à vontade -- a CLI (klinksrouter <url>) lê a versão mais
@@ -20,14 +41,7 @@ default_browser: firefox
 
 # Navegadores disponíveis: nome -> comando. A URL final é anexada como
 # último argumento do comando na hora de abrir o link.
-browsers:
-  firefox:
-    command: [firefox]
-  chrome:
-    command: [google-chrome-stable]
-  # brave:
-  #   command: [brave-browser]
-
+{browsers_yaml}
 # Regras avaliadas em ordem -- a primeira que casar com a URL vence (sem
 # "melhor match"). Coloque regras mais específicas antes de genéricas
 # (ex: meet.google.com antes de google.com).
@@ -53,6 +67,16 @@ rules:
   #   browser: firefox
 """
 
+# Mantido pra compatibilidade com quem importa o texto default direto (ex:
+# docs) -- sempre o sabor Linux. load_config() usa default_rules_yaml(), que
+# escolhe o sabor certo por plataforma.
+DEFAULT_RULES_YAML = _RULES_YAML_TEMPLATE.format(browsers_yaml=_BROWSERS_YAML_LINUX)
+
+
+def default_rules_yaml() -> str:
+    browsers_yaml = _BROWSERS_YAML_MACOS if sys.platform == "darwin" else _BROWSERS_YAML_LINUX
+    return _RULES_YAML_TEMPLATE.format(browsers_yaml=browsers_yaml)
+
 
 def config_dir() -> Path:
     return Path(user_config_dir(APP_NAME))
@@ -66,7 +90,7 @@ def load_config() -> dict:
     path = config_path()
     if not path.exists():
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(DEFAULT_RULES_YAML, encoding="utf-8")
+        path.write_text(default_rules_yaml(), encoding="utf-8")
 
     with path.open("r", encoding="utf-8") as f:
         data = yaml.safe_load(f) or {}

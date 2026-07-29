@@ -8,7 +8,8 @@ from klinksrouter.config import load_config, config_path
 
 def open_rules_file() -> None:
     load_config()  # garante que o arquivo exista antes de tentar abri-lo
-    subprocess.Popen(["xdg-open", str(config_path())])
+    opener = "open" if sys.platform == "darwin" else "xdg-open"
+    subprocess.Popen([opener, str(config_path())])
 
 
 def main() -> int:
