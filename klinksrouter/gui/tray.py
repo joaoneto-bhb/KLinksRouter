@@ -19,7 +19,7 @@ class _Application(QApplication):
     aqui, não numa CLI efêmera como no Linux."""
 
     def event(self, event) -> bool:
-        if event.type() == QEvent.Type.FileOpenEvent:
+        if event.type() == QEvent.Type.FileOpen:
             from klinksrouter.routing import route_url
 
             route_url(event.url().toString())
