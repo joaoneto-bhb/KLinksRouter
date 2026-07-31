@@ -6,8 +6,55 @@ on:
     tags: ["v*.*.*"]
   pull_request:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "Incremento de versão a partir da última tag"
+        type: choice
+        options: [fix, minor, major]
+        default: fix
 
 jobs:
+  # Só roda em tag push ou disparo manual. No manual, calcula a próxima versão
+  # a partir da última tag e cria/empurra a nova tag; o resto do fluxo (build +
+  # release) consome needs.version.outputs.version no mesmo run.
+  version:
+    name: Resolve version
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - id: resolve
+        env:
+          BUMP: ${{ inputs.bump }}
+        run: |
+          set -eu
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            last=$(git tag -l 'v*.*.*' --sort=-v:refname | head -n1)
+            last=${last:-v0.0.0}
+            IFS=. read -r major minor patch <<< "${last#v}"
+            case "$BUMP" in
+              major) major=$((major + 1)); minor=0; patch=0 ;;
+              minor) minor=$((minor + 1)); patch=0 ;;
+              fix)   patch=$((patch + 1)) ;;
+              *) echo "bump inválido: $BUMP" >&2; exit 1 ;;
+            esac
+            version="${major}.${minor}.${patch}"
+            echo "última tag=$last -> nova=v$version ($BUMP)"
+            git tag "v$version"
+            git push origin "v$version"
+          else
+            version="${GITHUB_REF_NAME#v}"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
   flatpak:
     name: Build Flatpak
     runs-on: ubuntu-latest
@@ -30,7 +77,7 @@ jobs:
 
   macos:
     name: Build macOS .dmg
-    if: startsWith(github.ref, 'refs/tags/v')
+    needs: version
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
@@ -40,7 +87,7 @@ jobs:
           python-version: "3.11"
 
       - name: Build .app and .dmg
-        run: scripts/build-macos.sh "${GITHUB_REF_NAME#v}"
+        run: scripts/build-macos.sh "${{ needs.version.outputs.version }}"
 
       - uses: actions/upload-artifact@v4
         with:
@@ -49,8 +96,7 @@ jobs:
 
   release:
     name: Publish release
-    needs: [flatpak, macos]
-    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [version, flatpak, macos]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -65,6 +111,7 @@ jobs:
 
       - uses: softprops/action-gh-release@v2
         with:
+          tag_name: v${{ needs.version.outputs.version }}
           files: |
             klinksrouter.flatpak
             KLinksRouter.dmg
