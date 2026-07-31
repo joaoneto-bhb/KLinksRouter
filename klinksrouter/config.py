@@ -21,11 +21,11 @@ browsers:
 _BROWSERS_YAML_MACOS = """\
 browsers:
   firefox:
-    command: [open, -a, Firefox, --args]
+    command: [open, -a, Firefox]
   chrome:
-    command: [open, -a, "Google Chrome", --args]
+    command: [open, -a, "Google Chrome"]
   # brave:
-  #   command: [open, -a, "Brave Browser", --args]
+  #   command: [open, -a, "Brave Browser"]
 """
 
 _RULES_YAML_TEMPLATE = """\
