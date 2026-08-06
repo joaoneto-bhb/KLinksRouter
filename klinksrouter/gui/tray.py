@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sys
 
-from PySide6.QtCore import QEvent
+from PySide6.QtCore import QEvent, QUrl
 from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 
 from klinksrouter.editor import open_rules_file
@@ -22,7 +22,9 @@ class _Application(QApplication):
         if event.type() == QEvent.Type.FileOpen:
             from klinksrouter.routing import route_url
 
-            route_url(event.url().toString())
+            # FullyEncoded: sem isso o Qt decodifica %20->espaço (e afins) e
+            # quebra URLs como as do Azure DevOps que vêm via redirect do Teams
+            route_url(event.url().toString(QUrl.ComponentFormattingOption.FullyEncoded))
             return True
         return super().event(event)
 
